@@ -1,15 +1,8 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-
-//package uk.ac.dundee.computing.aec.instagrim.servlets;
 package Servlets;
 
-//import com.datastax.driver.core.Cluster;
+import Models.Quiz;
+
 import java.io.IOException;
-import java.io.PrintWriter;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -17,28 +10,17 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-//import uk.ac.dundee.computing.aec.instagrim.lib.CassandraHosts;
-//import uk.ac.dundee.computing.aec.instagrim.models.User;
-
-//Date and UUID classes
-import java.util.Date;
-import java.util.UUID;
-//Quiz class
-import Models.Quiz;
 
 /**
- *
- * @author Administrator
+ * Refactored 19/03 by Philipp
+ * @author sophia
  */
 @WebServlet(name = "StaffSubmitQuiz", urlPatterns = {"/StaffSubmitQuiz"})
-public class StaffSubmitQuiz extends HttpServlet {
-    //Cluster cluster=null;
-    public void init(ServletConfig config) throws ServletException {
-        // TODO Auto-generated method stub
-        //cluster = CassandraHosts.getCluster();
-    }
-
-
+public class StaffSubmitQuiz extends HttpServlet 
+{
+    
+    public void init(ServletConfig config) throws ServletException 
+    {}
 
     /**
      * Handles the HTTP <code>POST</code> method.
@@ -50,81 +32,70 @@ public class StaffSubmitQuiz extends HttpServlet {
      */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
+            throws ServletException, IOException 
+    {
 
-        Quiz qz = new Quiz(); //create new object or use previous? info going into DB, not object
-        
-        int numOfQuestions=Integer.valueOf(request.getParameter("questionsnumber"));
-        int quizID=Integer.valueOf(request.getParameter("quizID"));
+        Quiz quiz          = new Quiz();
+        int numOfQuestions = Integer.valueOf(request.getParameter("questionsnumber")); 
+        int quizID         = Integer.valueOf(request.getParameter("quizID"));
 
-        String questionTextName="questiontext";
-        String explanationTextName="explanationtext";
-        //String validName="valid";
-        String answerTextName="answertext";
-        String correctName="correct";
-        String questionNumberName="questionnumbertext";
-
-        //Make arrays/vectors to insert question/answer info
-        for (int i=0; i<numOfQuestions; i++)
+        for (int i = 0; i < numOfQuestions; i++)
         {
-            //post the info of every question
-            //UUID questionID = UUID.randomUUID(); //get UUID in SQL?
-            //RequestDispatcher rd = request.getRequestDispatcher("/staffSubmitQuiz.jsp")
-            //request.setAttribute("questionID", questionID);
-            int questionID=-1;
-
-            String questionText = request.getParameter(questionTextName+(i+1));
-            String explanationText = request.getParameter(explanationTextName+(i+1));
-            int questionNumber = Integer.valueOf(request.getParameter(questionNumberName+(i+1)));
+            int questionID = -1;
+            String questionText    = request.getParameter("questiontext"+(i+1));
+            String explanationText = request.getParameter("explanationtext"+(i+1));
             
-            questionID=qz.SubmitQuestion(questionText, explanationText, quizID, questionNumber);
-
-            for (int j=0; j<4; j++)
+            questionID = quiz.SubmitQuestion(questionText, explanationText, quizID, (i+1));
+            
+            int numOfAnswers = Integer.parseInt(request.getParameter("numOfAnswers"+(i+1)));
+            for (int j = 0; j < numOfAnswers; j++)
             {
                 //post the info of every answer
-                //UUID answerID = UUID.randomUUID(); //get UUID in SQL?
-                //RequestDispatcher rd = request.getRequestDispatcher("/staffSubmitQuiz.jsp")
-                //request.setAttribute("answerID", answerID);
-
-                String answerText = request.getParameter(answerTextName+(i+1)+(j+1));
-                String correct = request.getParameter(correctName+(i+1)+(j+1)); //will be 1 or null
-                
-                boolean correctBool;//=true;
+                String answerText = request.getParameter("answertext"+(i+1)+(j+1));
+                String correct    = request.getParameter("correct"+(i+1)+(j+1)); // Will be 1 or null.
                 int correctInt;
-                if (correct=="1")
+
+                if (correct!=null)
                 {
-                    correctInt=1;
-                    correctBool=true;
+                    correctInt = 1;
                 }
                 else
                 {
-                    correctInt=0;
-                    correctBool=false;
+                    correctInt = 0;
                 }
-                
-                qz.SubmitAnswer(answerText, correctInt, questionID, questionNumber);
+                quiz.SubmitAnswer(answerText, correctInt, questionID);
             }
         }
-
-
-
+        
+        RequestDispatcher rd=request.getRequestDispatcher("/successfulcreation.jsp");
+        rd.forward(request,response);
     }
-
+    
+    /**
+     * 
+     * @param request
+     * @param response
+     * @throws ServletException
+     * @throws IOException 
+     */
+    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException
     {
-        RequestDispatcher rd=request.getRequestDispatcher("/staffSubmitQuiz.jsp");
+        RequestDispatcher rd = request.getRequestDispatcher("/staffSubmitQuiz.jsp");
         rd.forward(request,response);
     }
 
     /**
      * Returns a short description of the servlet.
      *
-     * @return a String containing servlet description
+     * @return String
      */
     @Override
-    public String getServletInfo() {
-        return "Short description";
-    }// </editor-fold>
+    public String getServletInfo() 
+    {
+        return "Acquires the core information needed to Create a Quiz"
+                + "from a Staff member (question texts & explanations, answers).";
+    }
 
 }

@@ -1,5 +1,8 @@
+package Servlets;
+
+import Models.Quiz;
+
 import java.io.IOException;
-import java.io.PrintWriter;
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -7,29 +10,18 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-//import uk.ac.dundee.computing.aec.instagrim.lib.CassandraHosts;
-//import uk.ac.dundee.computing.aec.instagrim.models.User;
-
-//Date and UUID classes
-import java.util.Date;
-import java.util.UUID;
-//Quiz class
-import Models.Quiz;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 /**
- *
- * @author Administrator
+ * Refactored 19/03 by Philipp & Sophia
+ * @author sophia
  */
 @WebServlet(name = "StaffStartQuiz", urlPatterns = {"/StaffStartQuiz"})
-public class StaffStartQuiz extends HttpServlet {
-    //Cluster cluster=null;
-    public void init(ServletConfig config) throws ServletException {
-        // TODO Auto-generated method stub
-        //cluster = CassandraHosts.getCluster();
-    }
+public class StaffStartQuiz extends HttpServlet 
+{
+    public void init(ServletConfig config) throws ServletException 
+    {}
 
     /**
      * Handles the HTTP <code>POST</code> method.
@@ -41,89 +33,68 @@ public class StaffStartQuiz extends HttpServlet {
      */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        
-        //HttpSession session=request.getSession();
-        
-        String title=request.getParameter("title");
-        String moduleID=request.getParameter("moduleID");
-        String available=request.getParameter("available"); //will be 1 or null
-        boolean availableBool;
-        int availableInt;
+            throws ServletException, IOException 
+    {
+        String title     = request.getParameter("title");
+        String moduleID  = request.getParameter("moduleID");
+        String available = request.getParameter("available"); // Will be 1 or null.
+        int isAvailable;
 
-        if (available.equals("1"))
+        if (available == null)
         {
-            availableBool=true;
-            availableInt=1;
+            isAvailable = 0;
         }
         else
         {
-            availableBool=false;
-            availableInt=0;
+            isAvailable = 1;
         }
         
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        DateTimeFormatter dtf  = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         LocalDate creationDate = LocalDate.now();
-        //System.out.println(dtf.format(localDate));
-        //Date creationDate = new Date();
 
-        int questionsnumber = Integer.valueOf(request.getParameter("questionsnumber"));
-
-        /////////////////Check if Quiz can be made/////////////////////////////////////
-        int quizID=0;
-        Quiz qz=new Quiz();
-        quizID = qz.RegisterQuiz(title, moduleID, availableInt, creationDate);
+        int questionsnumber = Integer.valueOf(request.getParameter("questionsnumber"));       
         
-        if (quizID>0)
-        {
-             //response.sendRedirect("/SubmissionSuccess");
-        }
-        else
-        {
-              //response.sendRedirect("/SubmissionError");
-        }
-        /////////////////////////////////////////////////////////////////////////////
-        
+        int quizID = 0;
+        Quiz quiz  = new Quiz();
+        quizID     = quiz.RegisterQuiz(title, moduleID, isAvailable, creationDate);     
         
         RequestDispatcher rd = request.getRequestDispatcher("/staffSubmitQuiz.jsp");
-        //request.setAttribute("title", title);
-        //request.setAttribute("moduleID", moduleID);
-        //request.setAttribute("available", available);
+        
         request.setAttribute("quizID", quizID);
-        //request.setAttribute("creationDate", creationDate);
         request.setAttribute("questionsnumber", questionsnumber);
 
         rd.forward(request, response);
-        
-
         response.sendRedirect("/staffSubmitQuiz.jsp");
     }
 
+    /**
+     * 
+     * @param request
+     * @param response
+     * @throws ServletException
+     * @throws IOException 
+     */
+    @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException
-    {
-        //Quiz qz = new Quiz();
-        //HttpSession session = request.getSession();
-        //get UUID from session attribute as an object. convert to string and acquire in UUID form
-        //UUID quizID= UUID.fromString(session.getAttribute("quizID").toString()); 
+    {    
+        String moduleID = request.getParameter("moduleID");
+        request.setAttribute("moduleID", moduleID);
         
-        RequestDispatcher rd=request.getRequestDispatcher("/staffStartQuiz.jsp");
-        //request.setAttribute("title", qz.getTitle(quizID));
-        //request.setAttribute("moduleID", qz.getModuleID(quizID));
-        //request.setAttribute("available", qz.getAvailable(quizID));
-        //request.setAttribute("creationDate", qz.getCreationDate(quizID));
-        //request.setAttribute("questionNumber", qz.getQuestionNumber(quizID));
+        RequestDispatcher rd = request.getRequestDispatcher("/staffStartQuiz.jsp");
         rd.forward(request,response);
     }
 
     /**
      * Returns a short description of the servlet.
      *
-     * @return a String containing servlet description
+     * @return String
      */
     @Override
-    public String getServletInfo() {
-        return "Short description";
-    }// </editor-fold>
+    public String getServletInfo() 
+    {
+        return "Acquires the initial information needed to start Creating a Quiz"
+                + "from a Staff member (title, availability, # of questions).";
+    }
 
 }

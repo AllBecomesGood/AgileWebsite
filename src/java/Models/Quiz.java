@@ -1,7 +1,9 @@
 package Models;
 
+import Beans.Answer;
 import Beans.Question;
 import Beans.QuizDetails;
+import Beans.QuizResults;
 import Util.DBConnection;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -10,31 +12,33 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.UUID;
 
+/**
+ * Refactoring 18/03 by Musa.
+ * @author Musa
+ */
 public class Quiz {
-    //Cluster cluster;
-
+    /** the getQuiz() method is used to get the relevant quiz from the list of several ones
+     * stored in the database.
+     * @param the quizID of the Quiz selected
+     * @return the details of the Quiz
+     */
     public QuizDetails getQuiz(int quizID) {
         QuizDetails quizDetails = new QuizDetails();
 
         Connection con;
-        Statement statement = null;
-        ResultSet quizRS = null;
+        Statement statement  = null;
+        ResultSet quizRS     = null;
         ResultSet questionRS = null;
-        ResultSet answerRS = null;
+        ResultSet answerRS   = null;
 
         String title = "";
 
         try {
-            con = DBConnection.createConnection(); //establishing connection
-            /*if (con == null) {
-                return true;
-            }*/
+            con = DBConnection.createConnection();
+            //creating first statement to get basic info about the quiz
             statement = con.createStatement();
-            //statement2 = con.createStatement();
-            quizRS = statement.executeQuery("select Available, Title, CreationDate from quiz where ID=" + quizID);
+            quizRS = statement.executeQuery("SELECT Available, Title, CreationDate FROM quiz WHERE ID=" + quizID);
 
             while (quizRS.next()) {
                 title = quizRS.getString("Title");
@@ -43,34 +47,31 @@ public class Quiz {
                 quizDetails.setDate(quizRS.getDate("CreationDate").toString());
             }
 
-            // con.close() ;
-            //con = DBConnection.createConnection();
+            //creating another statement to get all quiz questions 
             statement = con.createStatement();
-            questionRS = statement.executeQuery("select QuestionText, ExplanationText, Valid, QuestionNumber from question where QuizID = " + quizID);
+            Statement statement1 = con.createStatement();
+            questionRS = statement.executeQuery("SELECT ID,QuestionText, ExplanationText, Valid, QuestionNumber FROM question WHERE QuizID = " + quizID);
 
-            //quizDetails.setTitle(quizRS.getString("Title"));
-            ArrayList<Question> questions = new ArrayList<Question>();
+            ArrayList<Question> questions = new ArrayList<>();
 
-            while (questionRS.next()) // Until next row is present otherwise it return false
-            {
+            //iterate through every question and get detailed information
+            while (questionRS.next()) {
                 Question q = new Question();
-
+                q.setQuestionID(questionRS.getInt("ID"));
                 q.setQuestionText(questionRS.getString("QuestionText"));
                 q.setExplanation(questionRS.getString("ExplanationText"));
 
-                int questionNumber = questionRS.getInt("QuestionNumber");
-                statement = con.createStatement();
-                answerRS = statement.executeQuery("select AnswerText, Correct from answer where QuestionID = " + questionNumber);
+                answerRS = statement1.executeQuery("SELECT ID, AnswerText, Correct FROM answer WHERE QuestionID = " + questionRS.getInt("ID"));
 
-                int c = 0;
-                String[] answers = new String[4];
+                //Using Array List as both number of answers and the number of correct answers are unspecified
+                ArrayList<Answer> answers = new ArrayList<>();
+
                 while (answerRS.next()) {
-                    boolean correct = answerRS.getBoolean("Correct");
-                    if (correct) {
-                        q.setCorrectAnswerID(c);
-                    }
-                    answers[c] = answerRS.getString("AnswerText");
-                    c++;
+                    Answer answer = new Answer();
+                    answer.setCorrect(answerRS.getInt("Correct"));
+                    answer.setID(answerRS.getInt("ID"));
+                    answer.setText(answerRS.getString("AnswerText"));
+                    answers.add(answer);
                 }
                 q.setAnswers(answers);
                 questions.add(q);
@@ -78,36 +79,34 @@ public class Quiz {
 
             quizDetails.setQuestions(questions);
             con.close();
+            //returned a Bean filled with information about the quiz
             return quizDetails;
 
         } catch (SQLException e) {
             e.printStackTrace();
             return null;
         }
-
     }
 
-    /**
-     * Returns 0 for null Quiz ID, the ID for successful registration of the
-     * quiz, or -1 for error.
-    *
+    /** the RegisterQuiz() is created to allow a staff member to be able to create a 
+     * new quiz from fresh. The method establishes a connect to the database so that 
+     * it is possible to store the quiz once all the required fields are completed.
+     * Fields not included here are for Question text and answer explanation. 
+     * @param initial details of a Quiz
+     * @return the ID generated by the server for the Quiz just created
      */
     public int RegisterQuiz(String title, String moduleID, int available, LocalDate creationDate) {
         Connection con = null;
-        ResultSet rs = null;
+        ResultSet rs   = null;
         int id = 0;
 
         try {
-            con = DBConnection.createConnection(); //establishing connection
+            con = DBConnection.createConnection();
             Statement statement = con.createStatement();
-            //////////////////////////////////////
-            System.out.println("title: " + title);
-            System.out.println("moduleID: " + moduleID);
-            System.out.println("creationDate: " + creationDate);
-            System.out.println("available: " + available);
-            ////////////////////////////////////////////////
             PreparedStatement st;
-            st = con.prepareStatement("Insert into quiz (Available, Title, CreationDate, moduleID) values (?,?,?,?)");
+
+            st = con.prepareStatement("INSERT INTO quiz (Available, Title, CreationDate, moduleID) VALUES (?,?,?,?)");
+            //set each value of the query with the value of a variable
             st.setInt(1, available);
             st.setString(2, title);
             java.sql.Date dat = java.sql.Date.valueOf(creationDate);
@@ -115,96 +114,338 @@ public class Quiz {
             st.setString(4, moduleID);
             st.executeUpdate();
             st.clearParameters();
-            //statement.executeUpdate("Insert into quiz (Available, Title, CreationDate, moduleID) values ("+available+ "," +title+ "," +creationDate+ "," +moduleID+ ")" );
-            rs = statement.executeQuery("Select ID from quiz where Title = " + title + " AND moduleID = " + moduleID + " AND CreationDate = " + creationDate);
-            con.close();
-            while (rs.next()) // Until next row is present otherwise it returns false
+
+            rs = statement.executeQuery("SELECT ID FROM quiz WHERE Title = '" + title + "' AND moduleID = " + moduleID + " AND CreationDate = '" + creationDate + "'");
+
+            while (rs.next())
             {
-                //get quiz id
+                //get quiz id value
                 id = rs.getInt("ID");
-                System.out.println("Quiz id: " + id);
             }
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
             return -1;
-
         }
         return id;
     }
 
+    /** In the SubmitQuestion() function, the question fields are created and stored in the database.
+     * Unlike RegisterQuiz it's simply there so that it sends the questionText and explanationText 
+     * to the database which is then merged with the correct quiz ID in the table. 
+     * @param details of a Question
+     * @return ID generated by the server for the Question just created
+     */
     public int SubmitQuestion(String questionText, String explanationText, int quizID, int questionNumber) {
         Connection con = null;
-        ResultSet rs = null;
+        ResultSet rs   = null;
         int id = 0;
 
         try {
-            con = DBConnection.createConnection(); //establishing connection
+            con = DBConnection.createConnection();
             Statement statement = con.createStatement();
+            PreparedStatement st;
 
-            rs = statement.executeQuery("call insertQuestion where question, explanation, quizID, questNum = " + questionText + "," + explanationText + "," + quizID + "," + questionNumber + ";");
-            rs = statement.executeQuery("Select ID from question where QuizID = " + quizID + " AND QuestionNumber = " + questionNumber + ";");
+            st = con.prepareStatement("{CALL insertQuestion (?,?,?,?)}");
+            //set each value of the stored procedure with the value of a variable
+            st.setString(1, questionText);
+            st.setString(2, explanationText);
+            st.setInt(3, quizID);
+            st.setInt(4, questionNumber);
+            st.executeUpdate();
+            st.clearParameters();
 
-            while (rs.next()) // Until next row is present otherwise it returns false
+            rs = statement.executeQuery("SELECT ID FROM question WHERE QuizID = " + quizID + " AND QuestionNumber = " + questionNumber);
+
+            while (rs.next())
             {
+                //get question id value
                 id = rs.getInt("ID");
             }
-
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
             return -1;
-
-        } finally {
-            if (rs != null) {
-                try {
-                    rs.close();
-                } catch (SQLException e) {
-                }
-            }
-            if (con != null) {
-                try {
-                    con.close();
-                } catch (SQLException e) {
-                }
-            }
         }
         return id;
     }
 
-    public int SubmitAnswer(String answerText, int correct, int questionID, int questionNumber) {
+    /** SubmitAnswer() function is used to store the answer texts and the correct answers in
+     * a separate 'Answers' table in the database 
+     * @param details of an Answer
+     * @return ID generated by the server for the Answer just created
+     */
+    public int SubmitAnswer(String answerText, int correct, int questionNumber) {
         Connection con = null;
-        ResultSet rs = null;
         int id = 0;
 
         try {
-            con = DBConnection.createConnection(); //establishing connection
-            Statement statement = con.createStatement();
+            con = DBConnection.createConnection(); 
+            PreparedStatement st;
 
-            rs = statement.executeQuery("call insertAnswer where answer, isCorrect, quizID, questionNum = " + answerText + "," + correct + "," + questionID + "," + questionNumber + ";");
-            rs = statement.executeQuery("Select ID from answer where QuestionID = " + questionID + " AND AnswerText = " + answerText + ";");
+            st = con.prepareStatement("INSERT INTO answer (AnswerText, Correct, QuestionID) VALUES (?,?,?)");
+            //set each value of the query with the value of a variable
+            st.setString(1, answerText);
+            st.setInt(2, correct);
+            st.setInt(3, questionNumber);
+            st.executeUpdate();
+            st.clearParameters();
 
-            while (rs.next()) // Until next row is present otherwise it returns false
-            {
-                id = rs.getInt("ID");
-            }
-
+            con.close();
         } catch (SQLException e) {
             e.printStackTrace();
             return -1;
-
-        } finally {
-            if (rs != null) {
-                try {
-                    rs.close();
-                } catch (SQLException e) {
-                }
-            }
-            if (con != null) {
-                try {
-                    con.close();
-                } catch (SQLException e) {
-                }
-            }
         }
-        return id;
+        return 1;
+    }
+
+    /** For EditQuestion() it does exactly as the function state it will only
+     * update the question table already in the database depending on the quiz ID
+     * and what has/hasn't been changed. 
+     * 
+     * @param text
+     * @param exp
+     * @param ID 
+     */
+    public void EditQuestion(String text, String exp, int ID) {
+        Connection con = null;
+
+        try {
+            con = DBConnection.createConnection();
+
+            //prepard statement to update the question table
+            PreparedStatement statement = con.prepareStatement("UPDATE question SET QuestionText = ?, ExplanationText = ? WHERE ID=?");
+
+            statement.setString(1, text);
+            statement.setString(2, exp);
+            statement.setInt(3, ID);
+            statement.executeUpdate();
+            statement.close();
+            con.close();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** Similar to edit question but for the answer table. 
+     * 
+     * @param text
+     * @param ID
+     * @param correct 
+     */
+    public void EditAnswer(String text, int ID, int correct) {
+        Connection con = null;
+        try {
+            con = DBConnection.createConnection();
+
+            //prepard statement to update the answer table
+            PreparedStatement statement = con.prepareStatement("UPDATE answer SET answertext = ?, correct = ? WHERE ID=?");
+
+            statement.setString(1, text);
+            statement.setInt(2, correct);
+            statement.setInt(3, ID);
+            statement.executeUpdate();
+            statement.close();
+            
+            con.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** EditQuiz() here gets the quiz ID so that it is possible 
+     * for the staff member to be able to update the Quiz table with a new title
+     * and availability however the ID remains the same as always. 
+     * 
+     * @param availability
+     * @param title
+     * @param id 
+     */
+    public void EditQuiz(boolean availability, String title, int id) {
+        Connection con = null;
+        PreparedStatement prepStatement;
+        Byte available;
+
+        try {
+            con = DBConnection.createConnection();
+
+            prepStatement = con.prepareStatement("UPDATE quiz SET title = ?, available = ? WHERE ID=?");
+            prepStatement.setString(1, title);
+            if (availability) {
+                available = 1;
+            } else {
+                available = 0;
+            }
+            prepStatement.setByte(2, available);
+            prepStatement.setInt(3, id);
+            prepStatement.executeUpdate();
+            prepStatement.close();
+            
+            con.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    /** Retrieve details of a completed quiz.
+     * 
+     * @param quizID
+     * @return 
+     */
+    public QuizResults getQuizResults(int quizID) {
+
+        QuizResults quizResults = new QuizResults();
+
+        ArrayList<Integer> scores    = new ArrayList<>();
+        ArrayList<Integer> attempts  = new ArrayList<>();
+        ArrayList<String> surnames   = new ArrayList<>();
+        ArrayList<String> firstnames = new ArrayList<>();
+        ArrayList<String> matricNum  = new ArrayList<>();
+        ArrayList<String> dates      = new ArrayList<>();
+
+        Connection con;
+        Statement statement = null;
+        ResultSet quizRS    = null;
+        ResultSet userRS    = null;
+        ResultSet stats     = null;
+
+        try {
+            con = DBConnection.createConnection();
+            statement = con.createStatement();
+            quizRS = statement.executeQuery("SELECT Attempts, userID, Score, date FROM completed_quiz WHERE quizID=" + quizID);
+
+            while (quizRS.next()) {
+                scores.add(quizRS.getInt("Score"));
+                attempts.add(quizRS.getInt("Attempts"));
+                matricNum.add(quizRS.getString("userID"));
+                dates.add(quizRS.getString("date"));
+
+                statement = con.createStatement();
+                userRS = statement.executeQuery("SELECT First_Name, Last_Name FROM user WHERE ID = " + quizRS.getString("userID"));
+
+                //there will be one user anyway, but while loop is needed for it to work
+                while (userRS.next()) {
+                    surnames.add(userRS.getString("First_Name"));
+                    firstnames.add(userRS.getString("Last_Name"));
+                }
+            }
+            statement = con.createStatement();
+            //get average, minimum and maximum score of the quiz 
+            stats = statement.executeQuery("SELECT avg(Score) AS scoreAvg, max(Score) AS scoreMax, min(Score) AS scoreMin FROM completed_quiz WHERE quizID=" + quizID);
+
+            while (stats.next()) {
+                quizResults.setAverage(stats.getDouble("scoreAvg"));
+                quizResults.setMaxi(stats.getInt("scoreMin"));
+                quizResults.setMini(stats.getInt("scoreMax"));
+            }
+
+            quizResults.setAttempts(attempts);
+            quizResults.setFirstnames(firstnames);
+            quizResults.setMatricNum(matricNum);
+            quizResults.setSurnames(surnames);
+            quizResults.setScores(scores);
+            quizResults.setDates(dates);
+
+            con.close();
+            return quizResults;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+    }
+
+    /**  
+     * 
+     * @param the quizID of the Quiz selected
+     * @return results of the Quiz achieved by students who take the module
+     * that the quiz is assigned to and statistics based on that
+     */
+    public QuizResults getRelevantQuizResults(int quizID) {
+        QuizResults quizResults = new QuizResults();
+
+        ArrayList<Integer> scores    = new ArrayList<>();
+        ArrayList<Integer> attempts  = new ArrayList<>();
+        ArrayList<String> surnames   = new ArrayList<>();
+        ArrayList<String> firstnames = new ArrayList<>();
+        ArrayList<String> matricNum  = new ArrayList<>();
+        ArrayList<String> dates      = new ArrayList<>();
+
+        Connection con;
+        Statement statement = null;
+        ResultSet quizRS    = null;
+        ResultSet userRS    = null;
+        ResultSet stats     = null;
+        ResultSet modules   = null;
+
+        try {
+            con = DBConnection.createConnection();
+            statement = con.createStatement();
+            modules = statement.executeQuery("SELECT moduleID FROM quiz WHERE ID=" + quizID);
+            int modID = 0;
+
+            while (modules.next()) {
+                modID = modules.getInt("moduleID");
+            }
+
+            //there is a number of variables that need to be used in the query that is why prepared statement is used
+            String sql = "SELECT Attempts, userID, Score, date FROM completed_quiz WHERE quizID=? AND userID IN (SELECT studentID FROM student_modules WHERE moduleID=?)";
+            PreparedStatement pstmt = con.prepareStatement(sql);
+            //set quiz ID
+            pstmt.setInt(1, quizID);
+
+            //set module ID
+            pstmt.setInt(2, modID);
+
+            quizRS = pstmt.executeQuery();
+
+            while (quizRS.next()) {
+                scores.add(quizRS.getInt("Score"));
+                attempts.add(quizRS.getInt("Attempts"));
+                matricNum.add(quizRS.getString("userID"));
+                dates.add(quizRS.getString("date"));
+
+                statement = con.createStatement();
+                userRS = statement.executeQuery("SELECT First_Name, Last_Name FROM user WHERE ID = " + quizRS.getString("userID"));
+
+                //there will be one user anyway, but while loop is needed for it to work
+                while (userRS.next()) {
+                    firstnames.add(userRS.getString("First_Name"));
+                    surnames.add(userRS.getString("Last_Name"));
+                }
+            }
+
+            //get average, minimum and maximum score of the quiz for relevant students
+            String sql2 = "SELECT avg(Score) AS scoreAvg, max(Score) AS scoreMax, min(Score) AS scoreMin FROM completed_quiz WHERE quizID=? AND userID IN (SELECT studentID FROM student_modules WHERE moduleID=?)";
+            PreparedStatement pstmt2 = con.prepareStatement(sql2);
+            //set quiz ID
+            pstmt2.setInt(1, quizID);
+
+            //set module ID
+            pstmt2.setInt(2, modID);
+            stats = pstmt2.executeQuery();
+
+            while (stats.next()) {
+                quizResults.setAverage(stats.getDouble("scoreAvg"));
+                quizResults.setMini(stats.getInt("scoreMin"));
+                quizResults.setMaxi(stats.getInt("scoreMax"));
+            }
+
+            quizResults.setAttempts(attempts);
+            quizResults.setFirstnames(firstnames);
+            quizResults.setMatricNum(matricNum);
+            quizResults.setSurnames(surnames);
+            quizResults.setScores(scores);
+            quizResults.setDates(dates);
+
+            con.close();
+            return quizResults;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+
     }
 }
